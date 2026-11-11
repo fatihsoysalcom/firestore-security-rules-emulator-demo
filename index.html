@@ -1,0 +1,146 @@
+<html>
+<head>
+    <title>Firestore Security Rules Emulator Demo</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <style>
+        body { font-family: sans-serif; }
+        #output { margin-top: 20px; border: 1px solid #ccc; padding: 10px; white-space: pre-wrap; }
+        button { margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Firestore Security Rules Emulator Demo</h1>
+    <p>This demo simulates a scenario where Firestore security rules are tested against a local emulator.</p>
+
+    <button id="initEmulator">Initialize Emulator</button>
+    <button id="writeData">Write Public Data (Allowed)</button>
+    <button id="writePrivate">Write Private Data (Denied)</button>
+    <button id="readPublic">Read Public Data</button>
+    <button id="readPrivate">Read Private Data (Denied)</button>
+
+    <div id="output"></div>
+
+    <script>
+        const outputDiv = document.getElementById('output');
+        let db;
+
+        // Firestore emulator configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "your-project-id", // Must match emulator project ID
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Function to log messages to the output div
+        function log(message) {
+            outputDiv.textContent += message + '\n';
+            console.log(message);
+        }
+
+        // Initialize Firebase and connect to the emulator
+        document.getElementById('initEmulator').addEventListener('click', async () => {
+            outputDiv.textContent = ''; // Clear previous output
+            log('Initializing Firebase and connecting to emulator...');
+
+            try {
+                // Initialize Firebase app
+                const app = firebase.initializeApp(firebaseConfig);
+                
+                // Connect to Firestore emulator
+                firebase.firestore().useEmulator('localhost', 8080);
+                // Connect to Auth emulator (optional but good practice)
+                firebase.auth().useEmulator('localhost', 9099);
+
+                db = firebase.firestore();
+                log('Firebase initialized and connected to Firestore emulator on localhost:8080.');
+                log('Auth emulator connected on localhost:9099.');
+
+                // You would typically load your security rules here if they were external
+                // For this demo, rules are implicitly handled by the emulator's default setup or a rules file
+                // If you have a firestore.rules file, the emulator CLI would load it.
+                // For a self-contained HTML, rules are usually defined in the emulator's startup or a separate tool.
+
+            } catch (error) {
+                log('Error initializing Firebase or connecting to emulator: ' + error);
+            }
+        });
+
+        // --- Firestore Security Rules Simulation --- 
+        // Assume the following rules are enforced by the emulator:
+        // rules_version = '2';
+        // service cloud.firestore {
+        //   match /databases/{database}/documents {
+        //     // Public data is readable and writable by anyone
+        //     match /public/{documentId} {
+        //       allow read, write: if true;
+        //     }
+        //     // Private data is only readable/writable by authenticated users (simulated here)
+        //     // For this demo, we'll simulate denial for unauthenticated users.
+        //     match /private/{documentId} {
+        //       allow read, write: if request.auth != null;
+        //     }
+        //   }
+        // }
+
+        document.getElementById('writeData').addEventListener('click', async () => {
+            if (!db) { log('Emulator not initialized. Click Initialize Emulator first.'); return; }
+            log('Attempting to write to /public/doc1...');
+            try {
+                await db.collection('public').doc('doc1').set({ message: 'This is public data' });
+                log('Successfully wrote to /public/doc1.');
+            } catch (error) {
+                log('Error writing to /public/doc1: ' + error);
+            }
+        });
+
+        document.getElementById('writePrivate').addEventListener('click', async () => {
+            if (!db) { log('Emulator not initialized. Click Initialize Emulator first.'); return; }
+            log('Attempting to write to /private/doc1 (should be denied if not authenticated)...');
+            try {
+                // For this demo, we're not explicitly authenticating, so this should fail
+                await db.collection('private').doc('doc1').set({ message: 'This is private data' });
+                log('Successfully wrote to /private/doc1 (unexpected for unauthenticated).');
+            } catch (error) {
+                log('Error writing to /private/doc1: ' + error.message); // Expected error
+            }
+        });
+
+        document.getElementById('readPublic').addEventListener('click', async () => {
+            if (!db) { log('Emulator not initialized. Click Initialize Emulator first.'); return; }
+            log('Attempting to read from /public/doc1...');
+            try {
+                const doc = await db.collection('public').doc('doc1').get();
+                if (doc.exists) {
+                    log('Successfully read from /public/doc1: ' + JSON.stringify(doc.data()));
+                } else {
+                    log('Document /public/doc1 does not exist.');
+                }
+            } catch (error) {
+                log('Error reading from /public/doc1: ' + error);
+            }
+        });
+
+        document.getElementById('readPrivate').addEventListener('click', async () => {
+            if (!db) { log('Emulator not initialized. Click Initialize Emulator first.'); return; }
+            log('Attempting to read from /private/doc1 (should be denied if not authenticated)...');
+            try {
+                // For this demo, we're not explicitly authenticating, so this should fail
+                const doc = await db.collection('private').doc('doc1').get();
+                if (doc.exists) {
+                    log('Successfully read from /private/doc1: ' + JSON.stringify(doc.data()));
+                } else {
+                    log('Document /private/doc1 does not exist.');
+                }
+            } catch (error) {
+                log('Error reading from /private/doc1: ' + error.message); // Expected error
+            }
+        });
+
+    </script>
+</body>
+</html>
